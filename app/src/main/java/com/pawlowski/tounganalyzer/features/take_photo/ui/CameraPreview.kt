@@ -86,7 +86,7 @@ fun CameraView(
                     outputDirectory = outputDirectory,
                     executor = executor,
                     onImageCaptured = onImageCaptured,
-                    onError = onError
+                    onError = onError,
                 )
             },
             content = {
@@ -110,7 +110,7 @@ private fun takePhoto(
     outputDirectory: File,
     executor: Executor,
     onImageCaptured: (Uri) -> Unit,
-    onError: (ImageCaptureException) -> Unit
+    onError: (ImageCaptureException) -> Unit,
 ) {
 
     val photoFile = File(
@@ -132,6 +132,7 @@ private fun takePhoto(
         }
     })
 }
+
 
 @Suppress("BlockingMethodInNonBlockingContext")
 private suspend fun Context.getCameraProvider(): ProcessCameraProvider = suspendCoroutine { continuation ->

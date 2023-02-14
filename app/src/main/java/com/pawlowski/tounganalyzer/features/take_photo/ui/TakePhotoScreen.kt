@@ -2,19 +2,26 @@ package com.pawlowski.tounganalyzer.features.take_photo.ui
 
 import android.Manifest
 import android.content.Context
-import android.net.Uri
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.pawlowski.tounganalyzer.R
 import com.pawlowski.tounganalyzer.features.take_photo.view_model_related.ITakePhotoViewModel
 import com.pawlowski.tounganalyzer.features.take_photo.view_model_related.TakePhotoViewModel
+import com.pawlowski.tounganalyzer.ui.utils.openAppSettings
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -24,18 +31,29 @@ fun TakePhotoScreen(
 ) {
     val uiState = viewModel.container.stateFlow.collectAsState()
 
-    val showCamera = remember {
+    val context = LocalContext.current
+
+    val showCameraState = remember {
         derivedStateOf {
             uiState.value.showCamera
         }
     }
-    val showPhotoResult = remember {
-        mutableStateOf(false)
+    val showPhotoResultState = remember {
+        derivedStateOf {
+            uiState.value.showPhotoResult
+        }
     }
-    val resultPhotoUri = remember {
-        mutableStateOf<Uri?>(null)
+    val resultPhotoUriState = remember {
+        derivedStateOf {
+            uiState.value.capturedImage
+        }
     }
-    val context = LocalContext.current
+
+    val showPermissionDialogState = remember {
+        derivedStateOf {
+            uiState.value.showPermissionDialog
+        }
+    }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -47,9 +65,17 @@ fun TakePhotoScreen(
         }
     )
     LaunchedEffect(Unit) {
-        cameraPermissionLauncher.launch(
-            Manifest.permission.CAMERA
-        )
+        if(!context.isPermissionGranted(Manifest.permission.CAMERA)) {
+            cameraPermissionLauncher.launch(
+                Manifest.permission.CAMERA
+            )
+        } else {
+            viewModel.onPermissionResult(
+                permission = Manifest.permission.CAMERA,
+                isGranted = true
+            )
+        }
+
     }
     val cameraExecutor = remember {
         Executors.newSingleThreadExecutor()
@@ -60,31 +86,77 @@ fun TakePhotoScreen(
             cameraExecutor.shutdown()
         }
     }
-    if (showCamera.value) {
+    if (showCameraState.value) {
         CameraView(
-            outputDirectory = remember {
-               getOutputDirectory(context = context)
+            outputDirectory = remember(context) {
+                getOutputDirectory(context = context)
             },
             executor = cameraExecutor,
             onImageCaptured = {
                 Log.i("TakePhotoScreen", "Image captured: $it")
-                resultPhotoUri.value = it
-                viewModel.showResultPhoto()
-                showPhotoResult.value = true
+                viewModel.onImageCaptured(it)
             },
             onError = { Log.e("TakePhotoScreen", "View error:", it) }
         )
     }
 
-    if (showPhotoResult.value) {
-        AsyncImage(
-            model = resultPhotoUri.value,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize()
-        )
+
+    if (showPhotoResultState.value) {
+        Column {
+            AsyncImage(
+                model = resultPhotoUriState.value,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
+            Card(shape = RectangleShape) {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    Button(
+                        onClick = {
+                            viewModel.repeatTakingPhoto()
+                        }
+                    ) {
+                        Text(text = "Jeszcze raz")
+                    }
+                    Spacer(modifier = Modifier.width(15.dp))
+                    Button(onClick = { /*TODO*/ }) {
+                        Text(text = "Kontynuuj")
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+
+            }
+
+
+        }
+    }
+
+    if (showPermissionDialogState.value) {
+        PermissionDialog(
+            permissionTextProvider = CameraPermissionTextProvider(),
+            isPermanentlyDeclined = false/*TODO !shouldShowRequestPermissionRationale(
+                    ci
+                )*/,
+            onDismiss = { viewModel.dismissDialog() },
+            onOkClick = {
+                viewModel.dismissDialog()
+                cameraPermissionLauncher.launch(
+                    Manifest.permission.CAMERA
+                )
+            },
+            onGoToAppSettingsClick = { context.openAppSettings() })
     }
 }
 
+private fun Context.isPermissionGranted(permission: String): Boolean {
+    return ContextCompat.checkSelfPermission(
+        this,
+        permission
+    ) == PackageManager.PERMISSION_GRANTED
+}
 
 private fun getOutputDirectory(context: Context): File {
     val mediaDir = context.externalMediaDirs.firstOrNull()?.let {
@@ -93,11 +165,3 @@ private fun getOutputDirectory(context: Context): File {
 
     return if (mediaDir != null && mediaDir.exists()) mediaDir else context.filesDir
 }
-
-
-
-/*
-override fun onDestroy() {
-    super.onDestroy()
-    cameraExecutor.shutdown()
-}*/

@@ -1,6 +1,7 @@
 package com.pawlowski.tounganalyzer.features.take_photo.view_model_related
 
 import android.Manifest
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import org.orbitmvi.orbit.Container
@@ -37,10 +38,22 @@ class TakePhotoViewModel @Inject constructor(
         }
     }
 
-    override fun showResultPhoto() = intent {
+    override fun onImageCaptured(uri: Uri) = intent {
         reduce {
             state.copy(
-                showCamera = false
+                showCamera = false,
+                capturedImage = uri,
+                showPhotoResult = true
+            )
+        }
+    }
+
+    override fun repeatTakingPhoto() = intent {
+        reduce {
+            state.copy(
+                showPhotoResult = false,
+                showCamera = true,
+                capturedImage = null
             )
         }
     }

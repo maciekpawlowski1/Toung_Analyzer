@@ -1,0 +1,3 @@
+package com.pawlowski.tounganalyzer.features.take_photo.view_model_related
+
+sealed interface TakePhotoSideEffect

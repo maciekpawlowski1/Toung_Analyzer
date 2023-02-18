@@ -29,7 +29,9 @@ import java.util.concurrent.Executors
 
 @Composable
 fun TakePhotoScreen(
-    viewModel: ITakePhotoViewModel = hiltViewModel<TakePhotoViewModel>()
+    viewModel: ITakePhotoViewModel = hiltViewModel<TakePhotoViewModel>(),
+    isTakingPhotoPermissionPermanentlyDenied: () -> Boolean = { false },
+    onNavigateToNextScreen: () -> Unit,
 ) {
     val uiState = viewModel.container.stateFlow.collectAsState()
 
@@ -128,7 +130,7 @@ fun TakePhotoScreen(
                         Text(text = "Jeszcze raz")
                     }
                     Spacer(modifier = Modifier.width(15.dp))
-                    Button(onClick = { /*TODO*/ }) {
+                    Button(onClick = onNavigateToNextScreen) {
                         Text(text = "Kontynuuj")
                     }
                 }
@@ -143,9 +145,7 @@ fun TakePhotoScreen(
     if (showPermissionDialogState.value) {
         PermissionDialog(
             permissionTextProvider = CameraPermissionTextProvider(),
-            isPermanentlyDeclined = false/*TODO !shouldShowRequestPermissionRationale(
-                    ci
-                )*/,
+            isPermanentlyDeclined = isTakingPhotoPermissionPermanentlyDenied(),
             onDismiss = { viewModel.dismissDialog() },
             onOkClick = {
                 viewModel.dismissDialog()
